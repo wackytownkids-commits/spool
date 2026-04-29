@@ -164,11 +164,6 @@ function bindSetup() {
   };
 
   $('#yt-connect-btn').addEventListener('click', async () => {
-    if (!state.ytStatus.hasCreds) {
-      $('#creds-block').classList.remove('hidden');
-      $('#yt-status-line').textContent = 'Set up Google OAuth credentials first.';
-      return;
-    }
     $('#yt-status-line').textContent = 'Opening browser…';
     const r = await api.ytStartAuth();
     if (r.ok) {
@@ -177,21 +172,10 @@ function bindSetup() {
       state.ytStatus.connected = true;
       await refreshChannelPill();
     } else if (r.error === 'NO_GOOGLE_CREDS') {
-      $('#creds-block').classList.remove('hidden');
-      $('#yt-status-line').textContent = 'Need Google credentials first.';
+      $('#yt-status-line').textContent = 'OAuth credentials missing — set them in Settings → Override Google credentials.';
     } else {
       $('#yt-status-line').textContent = 'Auth failed: ' + r.error;
     }
-  });
-
-  $('#g-save-btn').addEventListener('click', async () => {
-    const id = $('#g-client-id').value.trim();
-    const sec = $('#g-client-secret').value.trim();
-    if (!id || !sec) return toast('Both fields required', 'err');
-    const r = await api.ytSetCreds(id, sec);
-    if (!r.ok) return toast('Save failed: ' + r.error, 'err');
-    state.ytStatus.hasCreds = true;
-    toast('Credentials saved. Click Connect.', 'ok');
   });
 
   $('#yt-skip-btn').addEventListener('click', () => showStep(2));

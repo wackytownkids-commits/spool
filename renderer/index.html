@@ -45,12 +45,8 @@
             <button id="yt-connect-btn" class="btn primary">Connect YouTube</button>
             <button id="yt-skip-btn" class="btn ghost">Skip for now</button>
           </div>
-          <div id="creds-block" class="creds-block hidden">
-            <p class="muted small">Spool needs a Google OAuth client to talk to YouTube. Create one (free, takes 3 minutes), then paste the Client ID and Client Secret below.</p>
-            <a class="link" data-href="https://console.cloud.google.com/apis/credentials">Open Google Cloud → Credentials →</a>
-            <label>Client ID<input id="g-client-id" type="text" placeholder="123456789-abc.apps.googleusercontent.com"></label>
-            <label>Client Secret<input id="g-client-secret" type="password" placeholder="GOCSPX-..."></label>
-            <button id="g-save-btn" class="btn ghost">Save credentials</button>
+          <div class="advisory">
+            <strong>Heads up.</strong> Spool's OAuth project is in Google's Testing mode while we wait on YouTube's verification (4–6 weeks). If your Google account isn't on the testers list yet, the consent screen will say <em>"Spool isn't verified"</em> — that's expected. Reply to your purchase email to get added. Or use <span class="muted">Settings → Override Google credentials</span> with your own Cloud project.
           </div>
           <div class="footer-row"><button id="step-1-next" class="btn next">Continue →</button></div>
         </div>
@@ -324,10 +320,11 @@
             <button id="settings-yt-disconnect" class="btn ghost small">Disconnect</button>
           </div>
           <details class="creds-fold">
-            <summary class="muted small">Google OAuth credentials</summary>
-            <label>Client ID<input id="set-g-id" type="text"></label>
-            <label>Client Secret<input id="set-g-secret" type="password"></label>
-            <button id="set-g-save" class="btn ghost small">Save</button>
+            <summary class="muted small">Override Google credentials (advanced)</summary>
+            <p class="muted small" style="margin:10px 0">Spool ships with shared OAuth credentials that work out of the box. Override them only if you want to use your own Google Cloud project quota, or you've published your own verified consent screen.</p>
+            <label>Client ID<input id="set-g-id" type="text" placeholder="123456789-abc.apps.googleusercontent.com"></label>
+            <label>Client Secret<input id="set-g-secret" type="password" placeholder="GOCSPX-..."></label>
+            <button id="set-g-save" class="btn ghost small">Save override</button>
           </details>
         </section>
 

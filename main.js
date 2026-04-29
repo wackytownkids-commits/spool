@@ -266,9 +266,17 @@ ipcMain.handle('license:devUnlock', () => {
 
 ipcMain.handle('yt:status', () => {
   const tokens = store.get('ytTokens');
+  // hasCreds reflects "OAuth is functional" — true if either user-overridden
+  // creds exist OR Spool's baked-in defaults are populated. The auth module
+  // falls back to defaults when overrides are absent, so we mirror that here.
+  const overrideId = store.get('googleClientId');
+  const overrideSecret = store.get('googleClientSecret');
+  const hasOverride = !!overrideId && !!overrideSecret;
+  const { hasDefaultCreds } = require('./src/auth');
   return {
     connected: !!tokens?.refresh_token,
-    hasCreds: !!(store.get('googleClientId') || '') && !!(store.get('googleClientSecret') || ''),
+    hasCreds: hasOverride || hasDefaultCreds(),
+    hasOverride,
   };
 });
 
