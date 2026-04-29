@@ -50,62 +50,153 @@ function getSources() {
   return _state.sources.map(s => ({ ...s }));
 }
 
-// Channel URL parser — accepts:
+// Channel URL/handle parser. Accepts:
 //   https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx
 //   https://www.youtube.com/@handle
 //   https://www.youtube.com/c/CustomName
-//   raw UC... id
-async function resolveChannel(input) {
-  if (!input) return null;
-  let id = null;
-  const trimmed = input.trim();
-  // Direct UC ID
-  if (/^UC[\w-]{20,}$/.test(trimmed)) id = trimmed;
-  // Channel URL
-  const idMatch = trimmed.match(/youtube\.com\/channel\/(UC[\w-]+)/);
-  if (idMatch) id = idMatch[1];
+//   https://www.youtube.com/user/LegacyName
+//   m.youtube.com / youtube.com / mobile / share-link variants
+//   bare @handle  (no domain)
+//   bare UC... id
+//
+// Returns { ok: true, channelId, title } on success, { ok: false, error: '...' } on failure.
 
-  if (!id) {
-    // Handle URLs (@username) and custom URLs (/c/name) — fetch the HTML and extract channel ID.
-    const url = trimmed.startsWith('http') ? trimmed : `https://www.youtube.com/${trimmed.replace(/^\//, '')}`;
-    try {
-      const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      if (!r.ok) return null;
-      const html = await r.text();
-      const m = html.match(/"channelId":"(UC[\w-]+)"/) || html.match(/<meta itemprop="channelId" content="(UC[\w-]+)"/);
-      if (m) id = m[1];
-    } catch (e) {
-      log.warn('channel resolve failed:', e.message);
-      return null;
-    }
+const HEADERS_FOR_SCRAPE = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  // CONSENT cookie bypasses Google's EU consent wall, which otherwise serves
+  // a mostly-empty interstitial page that has no channelId in it.
+  'Cookie': 'CONSENT=YES+1; SOCS=CAI',
+};
+
+// Try multiple regex patterns — Google has changed the inline JSON shape over
+// the years, and different page templates use different markers. We try them
+// from most-specific to most-permissive.
+const CHANNEL_ID_PATTERNS = [
+  /<meta\s+itemprop="(?:channelId|identifier)"\s+content="(UC[\w-]{20,})"/,
+  /<link\s+rel="canonical"\s+href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{20,})"/,
+  /"channelId":"(UC[\w-]{20,})"/,
+  /"externalChannelId":"(UC[\w-]{20,})"/,
+  /"externalId":"(UC[\w-]{20,})"/,
+  /"browseId":"(UC[\w-]{20,})"/,
+  /\/channel\/(UC[\w-]{20,})/, // last-ditch: any /channel/UC... ref in the HTML
+];
+
+function normalizeInput(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  // Strip leading @ that's a bare handle (no protocol)
+  if (s.startsWith('@') && !s.includes('/') && !s.includes('.')) {
+    return 'https://www.youtube.com/' + s;
   }
-  if (!id) return null;
-
-  // Fetch RSS to get title + thumbnail
+  // youtu.be doesn't host channel pages; only video shortlinks. Reject early.
+  if (/youtu\.be\//.test(s)) return s; // let the resolver fail with a useful message
+  // Add https:// if missing
+  if (!/^https?:\/\//i.test(s) && (s.includes('youtube.com') || s.startsWith('@'))) {
+    s = 'https://' + s.replace(/^\/+/, '');
+  }
+  // Normalize mobile -> desktop
+  s = s.replace(/^https?:\/\/m\.youtube\.com/i, 'https://www.youtube.com');
+  s = s.replace(/^https?:\/\/youtube\.com/i, 'https://www.youtube.com');
+  // Strip trailing slashes, hash fragments, and query strings (?si=, ?feature=share, etc.)
   try {
-    const r = await fetch(RSS_BASE + id);
-    if (!r.ok) return null;
-    const xml = await r.text();
-    const titleMatch = xml.match(/<title>([^<]+)<\/title>/);
-    const linkMatch = xml.match(/<author>\s*<name>([^<]+)<\/name>/);
-    return {
-      channelId: id,
-      title: linkMatch?.[1] || titleMatch?.[1] || id,
-    };
-  } catch (e) {
-    return { channelId: id, title: id };
+    const u = new URL(s);
+    u.hash = '';
+    u.search = '';
+    u.pathname = u.pathname.replace(/\/+$/, '');
+    return u.toString();
+  } catch (_) {
+    return s.replace(/\?.*$/, '').replace(/#.*$/, '').replace(/\/+$/, '');
   }
 }
 
+async function fetchChannelPage(url) {
+  // Two-pass fetch: regular page first; if no channelId found, try the
+  // /about page which is more stable across template changes.
+  const tries = [url, url.endsWith('/about') ? null : url.replace(/\/$/, '') + '/about'].filter(Boolean);
+  for (const u of tries) {
+    try {
+      const r = await fetch(u, { headers: HEADERS_FOR_SCRAPE, redirect: 'follow' });
+      if (!r.ok) continue;
+      const html = await r.text();
+      for (const re of CHANNEL_ID_PATTERNS) {
+        const m = html.match(re);
+        if (m && m[1]) return m[1];
+      }
+    } catch (e) {
+      log.warn('channel page fetch failed:', u, e.message);
+    }
+  }
+  return null;
+}
+
+async function fetchChannelTitle(channelId) {
+  try {
+    const r = await fetch(RSS_BASE + channelId, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
+    if (!r.ok) return null;
+    const xml = await r.text();
+    const author = xml.match(/<author>\s*<name>([^<]+)<\/name>/);
+    if (author) return author[1];
+    const t = xml.match(/<title>([^<]+)<\/title>/);
+    return t ? t[1] : null;
+  } catch (_) { return null; }
+}
+
+async function resolveChannel(input) {
+  if (!input) return { ok: false, error: 'Empty input.' };
+  const normalized = normalizeInput(input);
+
+  // Reject youtu.be early with a clear message
+  if (/youtu\.be\//.test(normalized)) {
+    return { ok: false, error: "youtu.be links are video shortcuts, not channels. Paste the channel URL like youtube.com/@channelname." };
+  }
+
+  let channelId = null;
+
+  // 1. Bare UC... ID
+  if (/^UC[\w-]{20,}$/.test(input.trim())) {
+    channelId = input.trim();
+  }
+
+  // 2. /channel/UC... in the URL
+  if (!channelId) {
+    const m = normalized.match(/\/channel\/(UC[\w-]{20,})/);
+    if (m) channelId = m[1];
+  }
+
+  // 3. /@handle, /c/customname, /user/legacyname → scrape page for channelId
+  if (!channelId && /youtube\.com\/(?:@|c\/|user\/)/i.test(normalized)) {
+    channelId = await fetchChannelPage(normalized);
+  }
+
+  // 4. Generic youtube.com/something fallback — try scraping in case it's an
+  // unusual URL shape we didn't anticipate
+  if (!channelId && /youtube\.com\//i.test(normalized)) {
+    channelId = await fetchChannelPage(normalized);
+  }
+
+  if (!channelId) {
+    return {
+      ok: false,
+      error: `Couldn't resolve "${input}". Try the full URL like youtube.com/@channelname or youtube.com/channel/UC...`,
+    };
+  }
+
+  // Pull a friendly title from the RSS feed
+  const title = await fetchChannelTitle(channelId);
+  return { ok: true, channelId, title: title || channelId };
+}
+
 async function addSource(input) {
-  const c = await resolveChannel(input);
-  if (!c) return { ok: false, error: 'Could not resolve channel.' };
-  if (_state.sources.some(s => s.channelId === c.channelId)) {
+  const r = await resolveChannel(input);
+  if (!r.ok) return r;
+  if (_state.sources.some(s => s.channelId === r.channelId)) {
     return { ok: false, error: 'Channel already added.' };
   }
   _state.sources.push({
-    channelId: c.channelId,
-    title: c.title,
+    channelId: r.channelId,
+    title: r.title,
     paused: false,
     addedAt: Date.now(),
     lastPolledAt: 0,
