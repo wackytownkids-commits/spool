@@ -1,6 +1,6 @@
 {
   "name": "spool",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Spool — prompt to YouTube. Generate stock-footage videos and ship them to your channel.",
   "main": "main.js",
   "scripts": {

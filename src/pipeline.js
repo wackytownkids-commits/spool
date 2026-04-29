@@ -34,6 +34,7 @@ async function generate({
   pexelsKey,
   pixabayKey,
   workspaceDir,        // %APPDATA%/Spool
+  isShorts,            // bool — vertical 9:16, max 60s
   onProgress,
 }) {
   if (_active) throw new Error('A generation is already running.');
@@ -41,6 +42,12 @@ async function generate({
   _cancelRequested = false;
 
   const mode = getMode(modeId);
+  // Mode can force shorts (e.g. 'Shorts Hook'); otherwise honor the flag.
+  const wantsShorts = !!(isShorts || mode.forceShorts);
+  // Shorts: 1080x1920 vertical, capped at 60s. Long-form: 1920x1080.
+  const targetWidth = wantsShorts ? 1080 : 1920;
+  const targetHeight = wantsShorts ? 1920 : 1080;
+  const effectiveDuration = wantsShorts ? Math.min(durationSec, 60) : durationSec;
   const projectId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   const projectDir = path.join(workspaceDir, 'projects', projectId);
   const cacheDir = path.join(workspaceDir, 'cache');
@@ -54,7 +61,7 @@ async function generate({
   try {
     // 1. Script
     update('script', 0, { message: 'Writing script...' });
-    const script = await writeScript({ prompt, modeId, durationSec, channelHint });
+    const script = await writeScript({ prompt, modeId, durationSec: effectiveDuration, channelHint, isShorts: wantsShorts });
     checkCancel();
     update('script', 1, { script });
 
@@ -71,7 +78,7 @@ async function generate({
         try {
           const r = await fetchClipForScene(script.scenes[i], {
             pexelsKey, pixabayKey, cacheDir,
-            targetWidth: 1920, targetHeight: 1080,
+            targetWidth, targetHeight,
           });
           if (r) clipFiles[i] = r.localPath;
         } catch (e) {
@@ -134,8 +141,8 @@ async function generate({
       musicFile,
       musicVolumeDb: mode.music.volumeDb,
       burnSubtitles: !!burnSubtitles && wantsTTS,
-      width: 1920,
-      height: 1080,
+      width: targetWidth,
+      height: targetHeight,
       outputDir: projectDir,
       outputName: 'output',
       onProgress: (p) => {
@@ -155,8 +162,11 @@ async function generate({
       createdAt: new Date().toISOString(),
       prompt,
       modeId,
-      durationSec,
+      durationSec: effectiveDuration,
       voice: voice || 'en-US-AriaNeural',
+      isShorts: wantsShorts,
+      width: targetWidth,
+      height: targetHeight,
       script,
       videoPath: out.videoPath,
       thumbPath: out.thumbPath,

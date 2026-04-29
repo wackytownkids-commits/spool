@@ -117,6 +117,14 @@
           <div class="hero">
             <label class="prompt-label">What's the video about?</label>
             <textarea id="prompt" class="prompt-input" rows="3" placeholder="top 5 most dangerous animals in the ocean"></textarea>
+            <div class="format-row">
+              <label class="format-toggle">
+                <input type="checkbox" id="opt-shorts">
+                <span class="format-track"><span class="format-thumb"></span></span>
+                <span class="format-label-shorts">Shorts</span>
+              </label>
+              <span id="format-aspect" class="format-aspect">16:9 horizontal · long-form</span>
+            </div>
           </div>
 
           <div class="block">
@@ -284,6 +292,7 @@
             <label class="radio"><input type="radio" name="batchVis" value="private"><span>Private</span></label>
           </div>
         </label>
+        <label class="check" style="margin-top:18px;text-transform:none;letter-spacing:normal;font-weight:500;font-size:13.5px"><input type="checkbox" id="batch-shorts"> Generate as YouTube Shorts (9:16, max 60s)</label>
         <div class="batch-cost muted small" id="batch-cost"></div>
         <div class="modal-actions">
           <button id="batch-cancel" class="btn ghost">Cancel</button>

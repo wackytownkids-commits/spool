@@ -12,6 +12,7 @@ const state = {
   duration: 60,
   selectedVoice: 'en-US-AriaNeural',
   burnSubs: true,
+  isShorts: false,
   generating: false,
   currentProject: null,
   proKeyClicks: 0,
@@ -61,6 +62,37 @@ function confirmDialog(title, body, okLabel = 'Continue') {
 }
 
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+function setShorts(on, fromUser) {
+  state.isShorts = !!on;
+  $('#opt-shorts').checked = !!on;
+  // Lock the toggle when the Shorts Hook mode is selected (it forces shorts).
+  const mode = state.modes.find(m => m.id === state.selectedMode);
+  const forced = !!(mode && mode.forceShorts);
+  $('#opt-shorts').disabled = forced;
+  // Aspect indicator
+  const ind = $('#format-aspect');
+  if (state.isShorts) {
+    ind.textContent = '9:16 vertical · max 60s · Short';
+    ind.classList.add('shorts');
+  } else {
+    ind.textContent = '16:9 horizontal · long-form';
+    ind.classList.remove('shorts');
+  }
+  // Clamp duration to 60s when going Shorts
+  if (state.isShorts && state.duration > 60) {
+    state.duration = 60;
+    $$('.duration-pill').forEach(p => p.classList.toggle('active', p.textContent === '60s'));
+    $('#duration-display').textContent = '60s';
+  }
+  // Hide >60s pills when Shorts is on
+  $$('.duration-pill').forEach(p => {
+    const isOver60 = ['3m','5m','10m','15m','30m'].includes(p.textContent);
+    if (state.isShorts) p.classList.add('shorts-hidden');
+    else p.classList.remove('shorts-hidden');
+    if (!isOver60) p.classList.remove('shorts-hidden');
+  });
+}
 
 async function refreshAutoUploadHint() {
   const vis = state.settings.autoUploadVisibility || 'unlisted';
@@ -220,9 +252,12 @@ function buildModeCards() {
       if (m.pro && !state.license.active) return toast(`${m.name} is a Pro mode.`, 'err');
       state.selectedMode = m.id;
       $$('.mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === m.id));
+      // If the mode forces shorts (e.g. Shorts Hook), flip + lock the toggle
       const mode = state.modes.find(x => x.id === m.id);
-      if (mode && state.duration < 60) {
-        // keep
+      if (mode && mode.forceShorts) setShorts(true);
+      else if (mode && !mode.forceShorts) {
+        // Re-enable the toggle (don't auto-uncheck — user may have toggled it on)
+        $('#opt-shorts').disabled = false;
       }
     });
     grid.appendChild(card);
@@ -276,6 +311,9 @@ async function loadVoices() {
 function bindCompose() {
   $('#voice-select').addEventListener('change', e => state.selectedVoice = e.target.value);
   $('#opt-subtitles').addEventListener('change', e => state.burnSubs = e.target.checked);
+
+  // Shorts toggle — flips aspect ratio + clamps duration
+  $('#opt-shorts').addEventListener('change', e => setShorts(e.target.checked, /*fromUser*/true));
 
   // Auto-upload toggle — first-time enable shows safety dialog
   const autoBox = $('#opt-autoupload');
@@ -344,6 +382,7 @@ async function startGenerate() {
     durationSec: state.duration,
     voice: state.selectedVoice,
     burnSubtitles: state.burnSubs,
+    isShorts: state.isShorts,
   });
 
   state.generating = false;
@@ -574,15 +613,19 @@ function updateBatchCostEstimate() {
 async function createBatch() {
   const seed = $('#batch-seed').value.trim();
   if (!seed) return toast('Add a seed topic.', 'err');
+  const isShorts = !!$('#batch-shorts').checked;
+  let durationSec = parseInt($('#batch-duration').value, 10);
+  if (isShorts && durationSec > 60) durationSec = 60;
   const params = {
     seed,
     count: parseInt($('#batch-count').value, 10),
     intervalMs: parseInt($('#batch-interval').value, 10),
     modeId: $('#batch-mode').value,
-    durationSec: parseInt($('#batch-duration').value, 10),
+    durationSec,
     voice: state.settings.voice,
     visibility: $('input[name="batchVis"]:checked')?.value || 'unlisted',
     burnSubtitles: state.settings.burnSubtitles,
+    isShorts,
   };
   $('#batch-create').disabled = true;
   $('#batch-create').textContent = 'Creating…';

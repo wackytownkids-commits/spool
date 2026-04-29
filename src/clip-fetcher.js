@@ -10,10 +10,11 @@ const log = require('electron-log');
 const PEXELS_SEARCH = 'https://api.pexels.com/videos/search';
 const PIXABAY_SEARCH = 'https://pixabay.com/api/videos/';
 
-async function searchPexels(query, perPage, key) {
+async function searchPexels(query, perPage, key, orientation) {
   if (!key) return [];
   try {
-    const url = `${PEXELS_SEARCH}?query=${encodeURIComponent(query)}&per_page=${perPage}&size=medium`;
+    const orient = orientation === 'portrait' ? '&orientation=portrait' : '&orientation=landscape';
+    const url = `${PEXELS_SEARCH}?query=${encodeURIComponent(query)}&per_page=${perPage}&size=medium${orient}`;
     const r = await fetch(url, { headers: { Authorization: key } });
     if (!r.ok) {
       log.warn('Pexels error', r.status);
@@ -57,9 +58,12 @@ function scoreFile(f) {
   return s;
 }
 
-async function searchPixabay(query, perPage, key) {
+async function searchPixabay(query, perPage, key, orientation) {
   if (!key) return [];
   try {
+    // Pixabay's video API has no orientation filter; we filter client-side
+    // by aspect ratio in scoreClip. We just over-fetch when going vertical
+    // so there's a reasonable chance of finding portrait/square clips.
     const url = `${PIXABAY_SEARCH}?key=${encodeURIComponent(key)}&q=${encodeURIComponent(query)}&per_page=${perPage}&video_type=film`;
     const r = await fetch(url);
     if (!r.ok) {
@@ -132,6 +136,7 @@ async function downloadFile(url, dest) {
 
 async function fetchClipForScene(scene, opts) {
   const { pexelsKey, pixabayKey, cacheDir, targetWidth, targetHeight } = opts;
+  const orientation = targetHeight > targetWidth ? 'portrait' : 'landscape';
   const queries = uniq([
     scene.search_query,
     scene.search_query?.replace(/[,.!?]/g, '').trim(),
@@ -142,8 +147,8 @@ async function fetchClipForScene(scene, opts) {
   for (const q of queries) {
     if (candidates.length >= 8) break;
     const [px, pb] = await Promise.all([
-      searchPexels(q, 6, pexelsKey),
-      searchPixabay(q, 6, pixabayKey),
+      searchPexels(q, 6, pexelsKey, orientation),
+      searchPixabay(q, 8, pixabayKey, orientation),
     ]);
     candidates = candidates.concat(px.filter(Boolean), pb.filter(Boolean));
   }

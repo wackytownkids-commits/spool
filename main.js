@@ -13,6 +13,7 @@ const pipeline = require('./src/pipeline');
 const library = require('./src/library');
 const queue = require('./src/queue');
 const slipstream = require('./src/slipstream');
+const scriptWriter = require('./src/script-writer');
 const { ALL_MODES, getMode, isProMode } = require('./src/modes');
 
 log.transports.file.level = 'info';
@@ -95,8 +96,19 @@ async function processQueueItem(item) {
       pexelsKey,
       pixabayKey,
       workspaceDir,
+      isShorts: !!item.isShorts,
       onProgress: (p) => mainWindow?.webContents.send('queue:progress', { itemId: item.id, ...p }),
     });
+    // Match generate:start IPC: prepend #Shorts to title/desc/tags
+    if (item.isShorts && project?.script) {
+      const t = String(project.script.title || '');
+      if (!/#shorts/i.test(t)) project.script.title = (t + ' #Shorts').slice(0, 100);
+      const d = String(project.script.description || '');
+      if (!/#shorts/i.test(d)) project.script.description = (d + '\n\n#Shorts').slice(0, 5000);
+      const tags = Array.isArray(project.script.tags) ? project.script.tags : [];
+      if (!tags.some(x => String(x).toLowerCase() === 'shorts')) tags.push('shorts');
+      project.script.tags = tags;
+    }
   } catch (e) {
     log.error('queue: generate failed', e);
     return { ok: false, error: e.code || e.message };
@@ -133,16 +145,22 @@ async function processQueueItem(item) {
 
 async function processSlipstreamItem(entry) {
   // Reuse queue's processor by faking an item — keeps quota tracking + audit
-  // log consistent. We pull config from settings (default mode/duration/voice).
+  // log consistent. Inherit the source channel's format (shorts vs long).
   const settings = getSettings();
+  const isShorts = entry.preferredFormat === 'shorts';
+  // If source is shorts-first, default to the Shorts Hook mode and 30s.
+  // Otherwise honor the user's defaults.
+  const modeId = isShorts ? 'shorts' : (settings.defaultMode || 'topx');
+  const durationSec = isShorts ? 30 : (settings.defaultDuration || 60);
   return processQueueItem({
     id: 'slipstream_' + entry.sourceVideoId,
     prompt: entry.prompt,
-    modeId: settings.defaultMode || 'topx',
-    durationSec: settings.defaultDuration || 60,
+    modeId,
+    durationSec,
     voice: settings.voice,
-    burnSubtitles: settings.burnSubtitles,
+    burnSubtitles: isShorts ? true : settings.burnSubtitles,
     visibility: settings.autoUploadVisibility || 'unlisted',
+    isShorts,
   });
 }
 
@@ -204,7 +222,9 @@ function uploadsInLast24h(history) {
 }
 
 const auditLogPath = path.join(app.getPath('userData'), 'logs', 'auto-upload.log');
+const scriptLogPath = path.join(app.getPath('userData'), 'logs', 'script-writer.log');
 fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
+scriptWriter.setLogPath(scriptLogPath);
 function appendAuditLog(entry) {
   try {
     fs.appendFileSync(auditLogPath, JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n');
@@ -442,12 +462,15 @@ ipcMain.handle('generate:start', async (_, params) => {
   if (pipeline.isActive()) return { ok: false, error: 'ALREADY_RUNNING' };
   const settings = getSettings();
   const license = !!store.get('license.active');
+  const mode = getMode(params.modeId);
+  const wantsShorts = !!(params.isShorts || mode.forceShorts);
 
   // Pro gating
   if (isProMode(params.modeId) && !license) {
-    return { ok: false, error: 'PRO_REQUIRED', detail: `${getMode(params.modeId).name} is a Pro mode.` };
+    return { ok: false, error: 'PRO_REQUIRED', detail: `${mode.name} is a Pro mode.` };
   }
-  if (!license && params.durationSec > 60) {
+  // Free tier 60s cap doesn't apply to shorts (which are <=60s anyway).
+  if (!license && !wantsShorts && params.durationSec > 60) {
     return { ok: false, error: 'PRO_REQUIRED', detail: 'Free tier is capped at 60-second videos.' };
   }
 
@@ -475,8 +498,19 @@ ipcMain.handle('generate:start', async (_, params) => {
       pexelsKey,
       pixabayKey,
       workspaceDir,
+      isShorts: wantsShorts,
       onProgress: (p) => mainWindow?.webContents.send('generate:progress', p),
     });
+    // Auto-inject #Shorts into title + description so YouTube classifies correctly.
+    if (wantsShorts && project?.script) {
+      const t = String(project.script.title || '');
+      if (!/#shorts/i.test(t)) project.script.title = (t + ' #Shorts').slice(0, 100);
+      const d = String(project.script.description || '');
+      if (!/#shorts/i.test(d)) project.script.description = (d + '\n\n#Shorts').slice(0, 5000);
+      const tags = Array.isArray(project.script.tags) ? project.script.tags : [];
+      if (!tags.some(x => String(x).toLowerCase() === 'shorts')) tags.push('shorts');
+      project.script.tags = tags;
+    }
     return { ok: true, project };
   } catch (e) {
     log.error('generate', e);
@@ -523,6 +557,7 @@ ipcMain.handle('modes:list', () => ALL_MODES.map(m => ({
   pro: m.pro,
   defaultDuration: m.defaultDuration,
   hasNarration: m.voice !== null,
+  forceShorts: !!m.forceShorts,
 })));
 
 // ===== Queue (Auto-Batch) =====

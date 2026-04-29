@@ -118,6 +118,17 @@ label input,label select,label textarea{margin-top:4px}
 .prompt-input:focus{border-bottom-color:var(--accent)}
 .prompt-input::placeholder{color:var(--muted-2);font-style:italic}
 
+.format-row{display:flex;align-items:center;gap:18px;margin-top:18px;padding-top:14px;border-top:1px dashed var(--hairline)}
+.format-toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;text-transform:none;letter-spacing:normal;margin:0;font-weight:600;font-size:14px}
+.format-toggle input{position:absolute;opacity:0;pointer-events:none}
+.format-track{position:relative;width:56px;height:28px;background:#27272a;border:1px solid var(--hairline-2);border-radius:99px;transition:all .18s ease;display:inline-flex;align-items:center;padding:0 4px}
+.format-thumb{display:inline-block;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s ease;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.format-toggle input:checked + .format-track{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.format-toggle input:checked + .format-track .format-thumb{transform:translateX(28px)}
+.format-toggle input:disabled + .format-track{opacity:.6;cursor:not-allowed}
+.format-aspect{font-size:12.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:0}
+.format-aspect.shorts{color:var(--accent)}
+
 .block{margin-bottom:30px;padding-bottom:24px;border-bottom:1px solid var(--hairline)}
 .block:last-of-type{border-bottom:none}
 .block.split{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:start}
@@ -137,6 +148,7 @@ label input,label select,label textarea{margin-top:4px}
 .duration-pill:hover{border-color:var(--hairline-2)}
 .duration-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .duration-pill.locked::after{content:' 🔒';opacity:.6;font-size:11px}
+.duration-pill.shorts-hidden{display:none}
 .duration-display{font-family:'Instrument Serif',serif;font-size:32px;font-weight:400;color:var(--accent);letter-spacing:-0.02em}
 
 .cta-row{display:flex;gap:12px;align-items:center;margin-top:20px}

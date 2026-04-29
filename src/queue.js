@@ -54,7 +54,7 @@ function getQueue() {
   return _state.batches.map(b => ({ ...b, items: b.items.map(it => ({ ...it })) }));
 }
 
-async function createBatch({ seed, count, intervalMs, modeId, durationSec, voice, visibility, burnSubtitles }) {
+async function createBatch({ seed, count, intervalMs, modeId, durationSec, voice, visibility, burnSubtitles, isShorts }) {
   const prompts = await fanoutPrompts(seed, count);
   const id = `b_${Date.now().toString(36)}`;
   const now = Date.now();
@@ -72,6 +72,7 @@ async function createBatch({ seed, count, intervalMs, modeId, durationSec, voice
   _state.batches.unshift({
     id, seed, count, intervalMs,
     modeId, durationSec, voice, visibility, burnSubtitles,
+    isShorts: !!isShorts,
     createdAt: now,
     items,
   });
@@ -150,6 +151,7 @@ async function tick() {
         voice: b.voice,
         burnSubtitles: b.burnSubtitles,
         visibility: b.visibility,
+        isShorts: b.isShorts,
       });
       if (r.ok) {
         setItemStatus(b.id, it.id, {

@@ -137,27 +137,33 @@ function wrapLines(text, maxLen) {
 }
 
 // Build final video: combine concatenated video + final audio + optional subtitle burn + title overlays
-async function muxFinal({ videoFile, audioFile, subtitleFile, scenes, dest, totalDuration, onProgress }) {
+async function muxFinal({ videoFile, audioFile, subtitleFile, scenes, dest, totalDuration, onProgress, isVertical }) {
   const inputs = ['-i', videoFile];
   if (audioFile) inputs.push('-i', audioFile);
 
   let vfilter = [];
-  // Subtitles burn-in
+  // Subtitles burn-in. Vertical needs larger font (narrower screen) and a
+  // higher MarginV so it sits above the YouTube Shorts UI chrome.
   if (subtitleFile) {
     const sub = subtitleFile.replace(/\\/g, '/').replace(/^([A-Za-z]):/, '$1\\:');
+    const subFontSize = isVertical ? 36 : 22;
+    const subMarginV = isVertical ? 240 : 70;
     vfilter.push(
-      `subtitles='${sub}':force_style='FontName=Inter,FontSize=22,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginV=70'`
+      `subtitles='${sub}':force_style='FontName=Inter,FontSize=${subFontSize},PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginV=${subMarginV}'`
     );
   }
-  // Title overlays per scene
+  // Title overlays per scene. Vertical: larger font, positioned in the upper
+  // third where Shorts viewers' eyes land first.
+  const overlayFontSize = isVertical ? 96 : 72;
+  const overlayY = isVertical ? '(h*0.16)' : 'h-260';
   const overlays = scenes
     .map((s, i) => ({ text: s.title_overlay, start: scenes.slice(0, i).reduce((a, x) => a + x.duration_seconds, 0), end: scenes.slice(0, i + 1).reduce((a, x) => a + x.duration_seconds, 0) }))
     .filter(o => o.text);
   for (const o of overlays) {
     vfilter.push(
-      `drawtext=text='${escapeFFText(o.text)}':fontcolor=white:fontsize=72:` +
+      `drawtext=text='${escapeFFText(o.text)}':fontcolor=white:fontsize=${overlayFontSize}:` +
       `box=1:boxcolor=0x000000@0.55:boxborderw=24:` +
-      `x=(w-text_w)/2:y=h-260:enable='between(t,${o.start},${o.end})'`
+      `x=(w-text_w)/2:y=${overlayY}:enable='between(t,${o.start},${o.end})'`
     );
   }
 
@@ -258,6 +264,7 @@ async function stitch({
     scenes,
     dest: finalPath,
     totalDuration,
+    isVertical: height > width,
     onProgress: (p) => onProgress?.({ stage: 'stitch:mux', pct: p }),
   });
 

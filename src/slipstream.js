@@ -188,12 +188,49 @@ async function resolveChannel(input) {
   return { ok: true, channelId, title: title || channelId };
 }
 
+// Heuristic format detection — probes the latest 5 video IDs from the source's
+// RSS feed and asks each whether it's a Short. Cheap, no quota.
+//
+// Mechanism: requesting https://www.youtube.com/shorts/{id} returns a Shorts
+// page only if the video IS a Short. For long-form videos, YouTube redirects
+// to /watch?v={id}. We do a redirect-following fetch and check the final URL.
+async function detectChannelFormat(channelId) {
+  try {
+    const rss = await fetch(RSS_BASE + channelId, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
+    if (!rss.ok) return 'unknown';
+    const xml = await rss.text();
+    const ids = [...xml.matchAll(/<yt:videoId>([^<]+)<\/yt:videoId>/g)].slice(0, 5).map(m => m[1]);
+    if (ids.length === 0) return 'unknown';
+    let shortsHits = 0;
+    for (const id of ids) {
+      try {
+        const r = await fetch('https://www.youtube.com/shorts/' + id, {
+          method: 'HEAD',
+          headers: HEADERS_FOR_SCRAPE,
+          redirect: 'follow',
+        });
+        // If the final URL still contains /shorts/, it's a Short. If it
+        // redirected to /watch, it's long-form.
+        if (/\/shorts\//.test(r.url || '')) shortsHits++;
+      } catch (_) {}
+    }
+    if (shortsHits >= Math.ceil(ids.length / 2)) return 'shorts';
+    return 'longform';
+  } catch (_) {
+    return 'unknown';
+  }
+}
+
 async function addSource(input) {
   const r = await resolveChannel(input);
   if (!r.ok) return r;
   if (_state.sources.some(s => s.channelId === r.channelId)) {
     return { ok: false, error: 'Channel already added.' };
   }
+  // Detect the source's preferred format up front so generated Slipstream
+  // videos match the source's vibe (shorts channel → shorts; vlog channel
+  // → long-form). Best-effort; falls back to 'unknown' on any failure.
+  const preferredFormat = await detectChannelFormat(r.channelId);
   _state.sources.push({
     channelId: r.channelId,
     title: r.title,
@@ -203,6 +240,7 @@ async function addSource(input) {
     lastSeenVideoId: null,
     lastError: null,
     processedCount: 0,
+    preferredFormat,        // 'shorts' | 'longform' | 'unknown'
   });
   save();
   return { ok: true, source: _state.sources[_state.sources.length - 1] };
@@ -292,6 +330,7 @@ async function tick() {
           sourceVideoId: entry.id,
           sourceTitle: entry.title,
           prompt,
+          preferredFormat: s.preferredFormat || 'unknown',
         });
         s.processedCount = (s.processedCount || 0) + 1;
         save();

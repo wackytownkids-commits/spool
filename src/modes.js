@@ -97,6 +97,28 @@ then 3-4 supporting facts, then a forward-looking close. Each scene needs a shor
     systemPrompt: `You are curating a themed clip compilation. NO narration. For each scene,
 write only a short stock-footage search query (3-6 words) that fits the theme.`,
   },
+  shorts: {
+    id: 'shorts',
+    name: 'Shorts Hook',
+    tagline: 'Vertical. Hook in 3 seconds.',
+    pro: true,
+    defaultDuration: 30,
+    forceShorts: true,
+    pacing: { avgSceneSeconds: 5, transition: 'cut' },
+    music: { vibe: 'hype', volumeDb: -10 },
+    voice: { rate: '+8%', pitch: '+0Hz' },
+    bigText: true,
+    burnSubsDefault: true,
+    systemPrompt: `You write punchy YouTube Shorts scripts (vertical 9:16, ~30 seconds).
+Format rules — non-negotiable:
+- Scene 1 narration MUST hook in the first 3 seconds. Use a curiosity gap, a surprising
+  fact, or a question the viewer needs to know the answer to. No "today we'll be looking at."
+- Each scene narration is ONE short sentence. Punchy. Conversational. High energy.
+- Pace fast: 5-6 scenes total at most.
+- Last scene narration delivers a satisfying payoff that closes the curiosity loop.
+- Each scene also gets a 2-4 word title_overlay that punches at the cut.
+- search_query describes a vertical-friendly visual (close-ups, faces, single subjects).`,
+  },
 };
 
 const ALL_MODES = Object.values(MODES);
