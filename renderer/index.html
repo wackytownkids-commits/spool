@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: blob: file:; img-src 'self' data: blob: https: http:; media-src 'self' blob: file:; font-src 'self' data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;">
+<title>Spool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Setup wizard (first run) -->
+  <section id="setup" class="setup hidden">
+    <div class="setup-shell">
+      <div class="setup-side">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true">
+              <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
+              <circle cx="20" cy="20" r="4" fill="currentColor"/>
+              <circle cx="20" cy="6.5" r="2.4" fill="currentColor"/>
+              <circle cx="33.5" cy="20" r="2.4" fill="currentColor"/>
+              <circle cx="20" cy="33.5" r="2.4" fill="currentColor"/>
+              <circle cx="6.5" cy="20" r="2.4" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="brand-name">Spool</div>
+        </div>
+        <h1 class="setup-headline">Prompt&nbsp;<span class="serif italic">in.</span><br>Channel <span class="serif italic">out.</span></h1>
+        <p class="setup-sub">Free APIs only. No billing. Connect your YouTube, paste two free keys, and Spool ships videos to your channel.</p>
+        <ol class="setup-steps">
+          <li class="step done"><span class="step-num">1</span><span>Connect YouTube</span></li>
+          <li class="step"><span class="step-num">2</span><span>Pexels key</span></li>
+          <li class="step"><span class="step-num">3</span><span>Pixabay key</span></li>
+        </ol>
+      </div>
+      <div class="setup-pane">
+        <div id="setup-step-1" class="setup-step active">
+          <div class="step-eyebrow">Step 1 / 3</div>
+          <h2>Connect your YouTube channel</h2>
+          <p class="muted">We open Google in your default browser. Spool only requests upload + read scopes — nothing destructive.</p>
+          <div id="yt-status-line" class="status-line muted">Not connected.</div>
+          <div class="row">
+            <button id="yt-connect-btn" class="btn primary">Connect YouTube</button>
+            <button id="yt-skip-btn" class="btn ghost">Skip for now</button>
+          </div>
+          <div id="creds-block" class="creds-block hidden">
+            <p class="muted small">Spool needs a Google OAuth client to talk to YouTube. Create one (free, takes 3 minutes), then paste the Client ID and Client Secret below.</p>
+            <a class="link" data-href="https://console.cloud.google.com/apis/credentials">Open Google Cloud → Credentials →</a>
+            <label>Client ID<input id="g-client-id" type="text" placeholder="123456789-abc.apps.googleusercontent.com"></label>
+            <label>Client Secret<input id="g-client-secret" type="password" placeholder="GOCSPX-..."></label>
+            <button id="g-save-btn" class="btn ghost">Save credentials</button>
+          </div>
+          <div class="footer-row"><button id="step-1-next" class="btn next">Continue →</button></div>
+        </div>
+        <div id="setup-step-2" class="setup-step">
+          <div class="step-eyebrow">Step 2 / 3</div>
+          <h2>Pexels API key</h2>
+          <p class="muted">Free tier: 200 requests/hour, 20k/month. Plenty for daily uploads.</p>
+          <a class="link" data-href="https://www.pexels.com/api/">Get your free Pexels key →</a>
+          <label>Pexels API key<input id="pexels-key" type="password" placeholder="paste your key"></label>
+          <div class="footer-row">
+            <button id="step-2-back" class="btn ghost">← Back</button>
+            <button id="step-2-next" class="btn next">Continue →</button>
+          </div>
+        </div>
+        <div id="setup-step-3" class="setup-step">
+          <div class="step-eyebrow">Step 3 / 3</div>
+          <h2>Pixabay API key</h2>
+          <p class="muted">More stock footage diversity + access to free music. Pure key-based; no OAuth.</p>
+          <a class="link" data-href="https://pixabay.com/api/docs/">Get your free Pixabay key →</a>
+          <label>Pixabay API key<input id="pixabay-key" type="password" placeholder="paste your key"></label>
+          <div class="footer-row">
+            <button id="step-3-back" class="btn ghost">← Back</button>
+            <button id="step-3-finish" class="btn primary">Open Spool</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main app shell -->
+  <section id="app" class="app hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand small">
+          <div class="brand-mark">
+            <svg viewBox="0 0 40 40" width="22" height="22" aria-hidden="true">
+              <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
+              <circle cx="20" cy="20" r="4" fill="currentColor"/>
+              <circle cx="20" cy="6.5" r="2.4" fill="currentColor"/>
+              <circle cx="33.5" cy="20" r="2.4" fill="currentColor"/>
+              <circle cx="20" cy="33.5" r="2.4" fill="currentColor"/>
+              <circle cx="6.5" cy="20" r="2.4" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="brand-name">Spool</div>
+        </div>
+        <nav class="tabs">
+          <button class="tab active" data-tab="compose">Compose</button>
+          <button class="tab" data-tab="queue">Queue<span class="pro-tag">PRO</span></button>
+          <button class="tab" data-tab="slipstream">Slipstream<span class="pro-tag">PRO</span></button>
+          <button class="tab" data-tab="library">Library</button>
+          <button class="tab" data-tab="settings">Settings</button>
+        </nav>
+      </div>
+      <div class="topbar-right">
+        <div id="channel-pill" class="channel-pill hidden">
+          <img id="channel-avatar" src="" alt="">
+          <span id="channel-name">—</span>
+        </div>
+        <div id="pro-pill" class="pro-pill hidden">PRO</div>
+      </div>
+    </header>
+
+    <!-- COMPOSE -->
+    <main id="tab-compose" class="tab-pane active">
+      <div class="compose-grid">
+        <div class="compose-main">
+          <div class="hero">
+            <label class="prompt-label">What's the video about?</label>
+            <textarea id="prompt" class="prompt-input" rows="3" placeholder="top 5 most dangerous animals in the ocean"></textarea>
+          </div>
+
+          <div class="block">
+            <div class="block-head">
+              <h3>Mode</h3>
+              <span class="muted small">7 styles. Each tunes pacing, music, narration.</span>
+            </div>
+            <div id="modes-grid" class="modes-grid"></div>
+          </div>
+
+          <div class="block">
+            <div class="block-head"><h3>Duration</h3><span id="duration-display" class="duration-display">60s</span></div>
+            <div class="duration-row" id="duration-row"></div>
+            <div class="muted small" id="duration-hint">YouTube quota is ~6 uploads/day per Google account.</div>
+          </div>
+
+          <div class="block">
+            <div class="autoupload-row">
+              <label class="toggle">
+                <input type="checkbox" id="opt-autoupload">
+                <span class="track"></span>
+              </label>
+              <div class="autoupload-text">
+                <div class="autoupload-title">Auto-upload after generate</div>
+                <div class="autoupload-sub muted small">Pushes the finished video straight to your channel as <span id="autoupload-vis">Unlisted</span>. <span id="autoupload-quota" class="muted-2"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="block split">
+            <div class="block-half">
+              <div class="block-head"><h3>Voice</h3></div>
+              <div class="row">
+                <select id="voice-select" class="select"></select>
+                <button id="voice-preview-btn" class="btn ghost small">Preview</button>
+              </div>
+            </div>
+            <div class="block-half">
+              <div class="block-head"><h3>Style</h3></div>
+              <label class="check"><input type="checkbox" id="opt-subtitles" checked> Burn subtitles</label>
+            </div>
+          </div>
+
+          <div class="cta-row">
+            <button id="generate-btn" class="btn cta">Generate Video</button>
+            <button id="cancel-btn" class="btn ghost hidden">Cancel</button>
+          </div>
+        </div>
+
+        <aside class="compose-side">
+          <div id="progress-card" class="progress-card hidden">
+            <div class="progress-stage" id="progress-stage">Starting…</div>
+            <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+            <div class="progress-percent" id="progress-percent">0%</div>
+            <div class="progress-log" id="progress-log"></div>
+          </div>
+
+          <div id="result-card" class="result-card hidden">
+            <video id="result-video" controls></video>
+            <div class="result-meta">
+              <input id="result-title" class="result-title" />
+              <textarea id="result-description" class="result-description" rows="3"></textarea>
+              <div class="row">
+                <select id="result-privacy" class="select small">
+                  <option value="private">Private</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="public">Public</option>
+                </select>
+                <button id="upload-btn" class="btn primary">Upload to YouTube</button>
+              </div>
+              <div id="upload-progress" class="muted small"></div>
+            </div>
+          </div>
+
+          <div class="hint-card" id="empty-side">
+            <div class="hint-eyebrow">Tip</div>
+            <p>Be visual. <span class="serif italic">"city traffic at night"</span> hits Pexels harder than <span class="serif italic">"urban life"</span>.</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- QUEUE (Pro) -->
+    <main id="tab-queue" class="tab-pane">
+      <div class="queue-head">
+        <div>
+          <h2>Auto-Batch</h2>
+          <p class="muted">Generate a queue of videos from a single seed topic. Spool ships them on a schedule.</p>
+        </div>
+        <button id="new-batch-btn" class="btn primary">+ New batch</button>
+      </div>
+      <div id="queue-pro-gate" class="pro-gate hidden">
+        <div class="pro-gate-eyebrow">PRO</div>
+        <h3>Auto-Batch is a Pro feature.</h3>
+        <p class="muted">Queue 5–30 videos from one seed, scheduled hourly / daily / weekly. Activate Pro in Settings to unlock.</p>
+      </div>
+      <div id="queue-list" class="queue-list"></div>
+    </main>
+
+    <!-- SLIPSTREAM (Pro) -->
+    <main id="tab-slipstream" class="tab-pane">
+      <div class="slipstream-head">
+        <h2>Slipstream</h2>
+        <p class="muted">Follow another channel. When they post, Spool generates an inspired video on the same topic.</p>
+      </div>
+      <div class="ethics-card">
+        <div class="ethics-eyebrow">⚠ Read this</div>
+        <p>Slipstream generates <strong>original</strong> content inspired by another channel's topics — not copies. Repeatedly re-uploading or closely paraphrasing another creator's videos can violate YouTube's reused-content policy and result in channel termination. <strong>Use this to follow trends, not to steal them.</strong></p>
+      </div>
+      <div id="slipstream-pro-gate" class="pro-gate hidden">
+        <div class="pro-gate-eyebrow">PRO</div>
+        <h3>Slipstream is a Pro feature.</h3>
+        <p class="muted">Activate Pro in Settings to unlock.</p>
+      </div>
+      <div id="slipstream-controls" class="slipstream-controls">
+        <input type="text" id="slipstream-input" placeholder="Paste a YouTube channel URL or @handle">
+        <button id="slipstream-add-btn" class="btn primary">Follow</button>
+      </div>
+      <div id="slipstream-list" class="slipstream-list"></div>
+    </main>
+
+    <!-- New batch modal -->
+    <div id="batch-modal" class="modal hidden">
+      <div class="modal-shell wide">
+        <h3>New auto-batch</h3>
+        <p class="muted small" style="margin:-6px 0 18px">One seed topic → many video prompts → ship on a schedule.</p>
+        <label>Seed topic
+          <input type="text" id="batch-seed" placeholder="cute cat compilations">
+        </label>
+        <div class="batch-row">
+          <label>Count
+            <select id="batch-count" class="select">
+              <option value="5">5 videos</option>
+              <option value="10" selected>10 videos</option>
+              <option value="20">20 videos</option>
+              <option value="30">30 videos</option>
+            </select>
+          </label>
+          <label>Cadence
+            <select id="batch-interval" class="select">
+              <option value="3600000">Hourly</option>
+              <option value="86400000" selected>Daily</option>
+              <option value="604800000">Weekly</option>
+            </select>
+          </label>
+        </div>
+        <div class="batch-row">
+          <label>Mode
+            <select id="batch-mode" class="select"></select>
+          </label>
+          <label>Duration
+            <select id="batch-duration" class="select">
+              <option value="30">30s</option>
+              <option value="60" selected>60s</option>
+              <option value="180">3m</option>
+              <option value="300">5m</option>
+              <option value="600">10m</option>
+            </select>
+          </label>
+        </div>
+        <label>Visibility
+          <div class="radio-group">
+            <label class="radio"><input type="radio" name="batchVis" value="public"><span>Public</span></label>
+            <label class="radio"><input type="radio" name="batchVis" value="unlisted" checked><span>Unlisted</span></label>
+            <label class="radio"><input type="radio" name="batchVis" value="private"><span>Private</span></label>
+          </div>
+        </label>
+        <div class="batch-cost muted small" id="batch-cost"></div>
+        <div class="modal-actions">
+          <button id="batch-cancel" class="btn ghost">Cancel</button>
+          <button id="batch-create" class="btn primary">Create batch</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIBRARY -->
+    <main id="tab-library" class="tab-pane">
+      <div class="lib-head">
+        <h2>Library</h2>
+        <p class="muted">Past generations. Re-upload, re-edit metadata, or open the file.</p>
+      </div>
+      <div id="library-list" class="library-list"></div>
+    </main>
+
+    <!-- SETTINGS -->
+    <main id="tab-settings" class="tab-pane">
+      <div class="settings-grid">
+        <section class="settings-block">
+          <h3>YouTube</h3>
+          <div id="settings-channel-card" class="channel-card hidden">
+            <img id="settings-channel-avatar" alt="">
+            <div>
+              <div id="settings-channel-title" class="channel-card-title">—</div>
+              <div id="settings-channel-sub" class="muted small">—</div>
+            </div>
+          </div>
+          <div id="settings-yt-status" class="muted">—</div>
+          <div class="row">
+            <button id="settings-yt-connect" class="btn primary small">Connect</button>
+            <button id="settings-yt-switch" class="btn ghost small hidden">Disconnect &amp; switch account</button>
+            <button id="settings-yt-disconnect" class="btn ghost small">Disconnect</button>
+          </div>
+          <details class="creds-fold">
+            <summary class="muted small">Google OAuth credentials</summary>
+            <label>Client ID<input id="set-g-id" type="text"></label>
+            <label>Client Secret<input id="set-g-secret" type="password"></label>
+            <button id="set-g-save" class="btn ghost small">Save</button>
+          </details>
+        </section>
+
+        <section class="settings-block">
+          <h3>API keys</h3>
+          <label>Pexels<input id="set-pexels" type="password"></label>
+          <label>Pixabay<input id="set-pixabay" type="password"></label>
+          <button id="set-keys-save" class="btn ghost small">Save keys</button>
+        </section>
+
+        <section class="settings-block">
+          <h3>Defaults</h3>
+          <label>Default voice<select id="set-voice" class="select"></select></label>
+          <label class="check"><input type="checkbox" id="set-channel-learning"> Use channel learning when generating</label>
+        </section>
+
+        <section class="settings-block">
+          <h3>Auto-upload</h3>
+          <div class="muted small" style="margin-bottom:12px">When enabled in Compose, finished videos go straight to your channel using the visibility below.</div>
+          <label>Default visibility</label>
+          <div class="radio-group">
+            <label class="radio"><input type="radio" name="autoVis" value="public"><span>Public</span></label>
+            <label class="radio"><input type="radio" name="autoVis" value="unlisted"><span>Unlisted</span></label>
+            <label class="radio"><input type="radio" name="autoVis" value="private"><span>Private</span></label>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <button id="open-autoupload-log" class="btn ghost small">Open audit log</button>
+            <span id="autoupload-quota-line" class="muted small"></span>
+          </div>
+        </section>
+
+        <section class="settings-block">
+          <h3>Pro</h3>
+          <div id="license-state" class="muted">Free tier.</div>
+          <label>License key<input id="license-key" type="text" placeholder="SPOOL-PRO-..."></label>
+          <button id="license-activate" class="btn primary small">Activate</button>
+        </section>
+
+        <section class="settings-block">
+          <h3>About</h3>
+          <div id="about-version" class="muted">Spool</div>
+          <div class="row">
+            <button id="check-updates" class="btn ghost small">Check for updates</button>
+            <button id="open-workspace" class="btn ghost small">Open workspace folder</button>
+          </div>
+          <div id="updater-line" class="muted small"></div>
+        </section>
+      </div>
+    </main>
+  </section>
+
+  <!-- Confirm modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-shell">
+      <h3 id="modal-title">Confirm</h3>
+      <p id="modal-body"></p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn ghost">Cancel</button>
+        <button id="modal-ok" class="btn primary">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Hidden audio el for voice preview -->
+  <audio id="voice-preview-audio"></audio>
+
+  <script src="renderer.js" type="module"></script>
+</body>
+</html>

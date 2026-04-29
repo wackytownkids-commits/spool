@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1018"/>
+      <stop offset="100%" stop-color="#0a0a0d"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="28%" cy="18%" r="55%">
+      <stop offset="0%"  stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="heat" cx="50%" cy="50%" r="48%">
+      <stop offset="0%"   stop-color="#EF4444" stop-opacity="0.42"/>
+      <stop offset="60%"  stop-color="#EF4444" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#EF4444" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#ff5e5e"/>
+      <stop offset="100%" stop-color="#c62a2a"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <rect width="1024" height="1024" fill="url(#sheen)"/>
+    <rect width="1024" height="1024" fill="url(#heat)"/>
+
+    <!-- Spool — film reel: outer ring, inner hub, four spoke notches -->
+    <g transform="translate(512 512)">
+      <!-- Outer ring -->
+      <circle r="320" fill="none" stroke="url(#ring)" stroke-width="60"/>
+      <!-- Inner hub -->
+      <circle r="86" fill="url(#ring)"/>
+      <!-- Four reel notches at cardinal directions -->
+      <circle cx="0"   cy="-220" r="42" fill="url(#ring)"/>
+      <circle cx="220" cy="0"    r="42" fill="url(#ring)"/>
+      <circle cx="0"   cy="220"  r="42" fill="url(#ring)"/>
+      <circle cx="-220" cy="0"   r="42" fill="url(#ring)"/>
+      <!-- Subtle highlight on hub -->
+      <circle r="86" fill="#ffffff" fill-opacity="0.08"/>
+    </g>
+
+    <rect x="0.5" y="0.5" width="1023" height="1023" rx="230" ry="230"
+          fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1"/>
+  </g>
+</svg>

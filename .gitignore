@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+cache/
+.preview/
+build/icon-*.png
+*.log
+.DS_Store
+.vscode/
+.idea/
